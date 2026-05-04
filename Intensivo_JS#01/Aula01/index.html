@@ -4,18 +4,206 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Intensivão JavaScript - Hashtag</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+        body { font-family: 'Roboto', sans-serif; }
+
+        #carrinho {
+            transition: right 0.3s ease;
+        }
+        #carrinho.aberto {
+            right: 0 !important;
+        }
+    </style>
 </head>
-<body>
-    <header>
-        <h1>Intensivão JavaScript - Hashtag</h1>
+
+<body class="bg-gray-100 text-gray-800">
+
+    <header class="bg-gray-800 text-white p-4 flex items-center justify-center gap-3 sticky top-0 z-40">
+        <h1 class="text-2xl font-bold">Intensivão JavaScript - Hashtag</h1>
+        <div class="flex gap-4 text-sm font-semibold items-center ml-auto">
+            <button class="hover:text-gray-300 transition">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </button>
+            <button id="abrir-carrinho" class="relative hover:text-gray-300 transition">
+                <i class="fa-solid fa-cart-arrow-down text-xl"></i>
+                <span id="badge-carrinho"
+                      class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center hidden">
+                    0
+                </span>
+            </button>
+        </div>
     </header>
-    <main>
-        <section id ="container-produto">
+
+    <main class="p-6 min-h-screen">
+        <section id="container-produto"
+                 class="flex flex-wrap gap-6 justify-center items-stretch max-w-7xl mx-auto">
         </section>
     </main>
-    <script src="script.js"></script>
-    <footer>
+
+    <footer class="bg-gray-800 text-white p-4 text-center mt-8">
         <p>&copy; 2026 Intensivão JavaScript - Hashtag</p>
     </footer>
+
+    <!-- Overlay -->
+    <div id="overlay"
+         class="fixed inset-0 bg-black/50 z-40 hidden"
+         id="overlay"></div>
+
+    <!-- Carrinho -->
+    <aside id="carrinho"
+           class="fixed top-0 right-[-360px] bg-gray-800 text-white h-screen w-80 p-4 z-50 flex flex-col">
+
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-2xl font-bold">Carrinho</h2>
+            <button id="fechar-carrinho" class="hover:text-gray-300 transition text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <section id="produtos-carrinho" class="flex-1 overflow-y-auto flex flex-col gap-3">
+            <p class="text-gray-400 text-sm text-center mt-4">Seu carrinho está vazio.</p>
+        </section>
+
+        <div class="border-t border-gray-600 pt-4 mt-4">
+            <p class="text-lg font-bold mb-3">
+                Total: <span id="preco-total">R$ 0,00</span>
+            </p>
+            <button class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded w-full transition">
+                Finalizar Compra
+            </button>
+        </div>
+    </aside>
+
+    <script>
+        /* ── Catálogo ── */
+        const catalogo = [
+            { id: 1, nome: "Notebook",       preco: 5000, estoque: 10, nomeArquivoImagem: "notebook.png",       descricao: "Notebook Gamer com processador Intel Core i7, 16GB de RAM, placa de vídeo NVIDIA GeForce RTX 3060, SSD 512GB e tela Full HD 15,6\"." },
+            { id: 2, nome: "Smartphone",     preco: 3000, estoque: 20, nomeArquivoImagem: "smartphone.png",     descricao: "Smartphone com tela AMOLED 6,5\", processador octa-core, 8GB RAM, 128GB, câmera tripla 48MP e bateria de longa duração." },
+            { id: 3, nome: "Bateria externa",preco:  150, estoque: 50, nomeArquivoImagem: "bateria_externa.png",descricao: "Bateria portátil de alta capacidade, compatível com todos os dispositivos USB-C e USB-A." },
+            { id: 4, nome: "Notebook",       preco: 5000, estoque: 10, nomeArquivoImagem: "notebook.png",       descricao: "Notebook Gamer com processador Intel Core i7, 16GB de RAM, placa de vídeo NVIDIA GeForce RTX 3060, SSD 512GB e tela Full HD 15,6\"." },
+            { id: 5, nome: "Smartphone",     preco: 3000, estoque: 20, nomeArquivoImagem: "smartphone.png",     descricao: "Smartphone com tela AMOLED 6,5\", processador octa-core, 8GB RAM, 128GB, câmera tripla 48MP e bateria de longa duração." },
+            { id: 6, nome: "Bateria externa",preco:  150, estoque: 50, nomeArquivoImagem: "bateria_externa.png",descricao: "Bateria portátil de alta capacidade, compatível com todos os dispositivos USB-C e USB-A." },
+        ];
+
+        /* ── Estado do carrinho ── */
+        const carrinho = [];   // [{ produto, quantidade }]
+
+        /* ── Renderiza catálogo ── */
+        const container = document.getElementById("container-produto");
+
+        // Usa DocumentFragment para evitar reflow a cada iteração
+        const fragment = document.createDocumentFragment();
+
+        for (const produto of catalogo) {
+            const div = document.createElement("div");
+            div.className = "w-80 border-2 border-gray-300 p-5 rounded-xl bg-white shadow-lg flex flex-col items-center justify-between gap-3 hover:shadow-xl transition-shadow duration-300";
+            div.innerHTML = `
+                <img src="./assets/${produto.nomeArquivoImagem}"
+                     alt="${produto.nome}"
+                     class="w-full h-48 object-cover rounded-lg border border-gray-200"
+                     onerror="this.src='https://placehold.co/320x192?text=${encodeURIComponent(produto.nome)}'">
+                <h3 class="text-xl font-bold text-gray-800 text-center">${produto.nome}</h3>
+                <p class="text-2xl font-bold text-green-600">R$ ${produto.preco.toFixed(2)}</p>
+                <p class="text-sm text-gray-600">
+                    <span class="font-semibold">Estoque:</span> ${produto.estoque} unidades
+                </p>
+                <p class="text-gray-600 text-sm text-center line-clamp-3">${produto.descricao}</p>
+                <button data-id="${produto.id}"
+                        class="btn-comprar bg-blue-500 text-white px-5 py-2 rounded-lg hover:bg-blue-600 transition w-full font-semibold">
+                    Comprar
+                </button>
+            `;
+            fragment.appendChild(div);
+        }
+        container.appendChild(fragment);
+
+        /* ── Lógica do carrinho ── */
+        function atualizarCarrinho() {
+            const lista   = document.getElementById("produtos-carrinho");
+            const total   = document.getElementById("preco-total");
+            const badge   = document.getElementById("badge-carrinho");
+
+            lista.innerHTML = "";
+
+            if (carrinho.length === 0) {
+                lista.innerHTML = '<p class="text-gray-400 text-sm text-center mt-4">Seu carrinho está vazio.</p>';
+            } else {
+                for (const item of carrinho) {
+                    const div = document.createElement("div");
+                    div.className = "flex items-center justify-between bg-gray-700 rounded-lg p-3 gap-2";
+                    div.innerHTML = `
+                        <div class="flex-1 min-w-0">
+                            <p class="font-semibold text-sm truncate">${item.produto.nome}</p>
+                            <p class="text-gray-300 text-xs">R$ ${item.produto.preco.toFixed(2)} × ${item.quantidade}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button data-id="${item.produto.id}" class="btn-remover text-gray-300 hover:text-white transition px-1">
+                                <i class="fa-solid fa-minus text-xs"></i>
+                            </button>
+                            <span class="text-sm font-bold">${item.quantidade}</span>
+                            <button data-id="${item.produto.id}" class="btn-adicionar text-gray-300 hover:text-white transition px-1">
+                                <i class="fa-solid fa-plus text-xs"></i>
+                            </button>
+                        </div>
+                    `;
+                    lista.appendChild(div);
+                }
+            }
+
+            const valorTotal = carrinho.reduce((acc, i) => acc + i.produto.preco * i.quantidade, 0);
+            const qtdTotal   = carrinho.reduce((acc, i) => acc + i.quantidade, 0);
+
+            total.textContent = `R$ ${valorTotal.toFixed(2)}`;
+            badge.textContent  = qtdTotal;
+            badge.classList.toggle("hidden", qtdTotal === 0);
+        }
+
+        function adicionarAoCarrinho(id) {
+            const produto = catalogo.find(p => p.id === id);
+            if (!produto) return;
+            const item = carrinho.find(i => i.produto.id === id);
+            if (item) {
+                item.quantidade++;
+            } else {
+                carrinho.push({ produto, quantidade: 1 });
+            }
+            atualizarCarrinho();
+        }
+
+        function removerDoCarrinho(id) {
+            const index = carrinho.findIndex(i => i.produto.id === id);
+            if (index === -1) return;
+            carrinho[index].quantidade--;
+            if (carrinho[index].quantidade === 0) carrinho.splice(index, 1);
+            atualizarCarrinho();
+        }
+
+        /* ── Eventos ── */
+        const elCarrinho      = document.getElementById("carrinho");
+        const elOverlay       = document.getElementById("overlay");
+        const btnAbrirCarrinho  = document.getElementById("abrir-carrinho");
+        const btnFecharCarrinho = document.getElementById("fechar-carrinho");
+
+        function abrirCarrinho()  { elCarrinho.classList.add("aberto"); elOverlay.classList.remove("hidden"); }
+        function fecharCarrinho() { elCarrinho.classList.remove("aberto"); elOverlay.classList.add("hidden"); }
+
+        btnAbrirCarrinho.addEventListener("click", abrirCarrinho);
+        btnFecharCarrinho.addEventListener("click", fecharCarrinho);
+        elOverlay.addEventListener("click", fecharCarrinho);
+
+        // Delegação de eventos — um único listener para todos os botões
+        document.addEventListener("click", (e) => {
+            const btnComprar   = e.target.closest(".btn-comprar");
+            const btnAdicionar = e.target.closest(".btn-adicionar");
+            const btnRemover   = e.target.closest(".btn-remover");
+
+            if (btnComprar)   adicionarAoCarrinho(Number(btnComprar.dataset.id));
+            if (btnAdicionar) adicionarAoCarrinho(Number(btnAdicionar.dataset.id));
+            if (btnRemover)   removerDoCarrinho(Number(btnRemover.dataset.id));
+        });
+    </script>
 </body>
+</html>
